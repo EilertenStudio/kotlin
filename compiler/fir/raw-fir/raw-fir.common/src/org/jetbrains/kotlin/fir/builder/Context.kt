@@ -13,7 +13,6 @@ import org.jetbrains.kotlin.fir.FirSourceElementKind
 import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.symbols.impl.FirTypeParameterSymbol
 import org.jetbrains.kotlin.fir.types.ConeClassLikeType
-import org.jetbrains.kotlin.fir.types.ConeKotlinType
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
@@ -21,8 +20,9 @@ import org.jetbrains.kotlin.name.Name
 class Context<T> {
     lateinit var packageFqName: FqName
     var className: FqName = FqName.ROOT
-    val localBits: MutableList<Boolean> = mutableListOf()
-    val currentClassId get() = ClassId(packageFqName, className, localBits.lastOrNull() ?: false)
+    var forcedLocalContext: Boolean = false
+    val inLocalContext get() = forcedLocalContext || firFunctionTargets.isNotEmpty()
+    val currentClassId get() = ClassId(packageFqName, className, inLocalContext)
 
     val firFunctionTargets = mutableListOf<FirFunctionTarget>()
     val calleeNamesForLambda = mutableListOf<Name>()
