@@ -18,6 +18,8 @@ import org.jetbrains.kotlin.backend.konan.isExternalObjCClass
 import org.jetbrains.kotlin.backend.konan.isKotlinObjCClass
 import org.jetbrains.kotlin.backend.konan.serialization.AbstractKonanIrMangler
 import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.types.IrSimpleType
+import org.jetbrains.kotlin.ir.types.classFqName
 import org.jetbrains.kotlin.ir.util.findAnnotation
 import org.jetbrains.kotlin.ir.util.fqNameForIrSerialization
 import org.jetbrains.kotlin.ir.util.isSuspend

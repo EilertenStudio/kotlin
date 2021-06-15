@@ -15,12 +15,8 @@ import org.jetbrains.kotlin.backend.konan.reportCompilationError
 import org.jetbrains.kotlin.descriptors.ClassDescriptor
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.builders.*
-import org.jetbrains.kotlin.ir.declarations.IrEnumEntry
-import org.jetbrains.kotlin.ir.declarations.IrFile
-import org.jetbrains.kotlin.ir.declarations.IrFunction
-import org.jetbrains.kotlin.ir.declarations.IrTypeParameter
-import org.jetbrains.kotlin.ir.expressions.IrExpression
-import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
+import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetEnumValueImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrVarargImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
@@ -32,6 +28,8 @@ import org.jetbrains.kotlin.resolve.descriptorUtil.fqNameUnsafe
 import org.jetbrains.kotlin.resolve.descriptorUtil.getAllSuperClassifiers
 import org.jetbrains.kotlin.types.Variance
 
+class KTypeConstructorOrigin(val type: IrType) : IrStatementOriginImpl("KTYPE")
+
 internal class KTypeGenerator(
         val context: KonanBackendContext,
         val irFile: IrFile,
@@ -40,8 +38,12 @@ internal class KTypeGenerator(
 ) {
     private val symbols = context.ir.symbols
 
-    fun IrBuilderWithScope.irKType(type: IrType, leaveReifiedForLater: Boolean = false) =
-            irKType(type, leaveReifiedForLater, mutableSetOf())
+    fun IrBuilderWithScope.irKType(type: IrType, leaveReifiedForLater: Boolean = false) : IrExpression {
+        val call = irKType(type, leaveReifiedForLater, mutableSetOf())
+        return irBlock(origin = KTypeConstructorOrigin(type)) {
+            +call
+        }
+    }
 
     private class RecursiveBoundsException(message: String) : Throwable(message)
 
