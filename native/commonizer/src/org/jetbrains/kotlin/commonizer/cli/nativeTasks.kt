@@ -15,7 +15,6 @@ import org.jetbrains.kotlin.commonizer.repository.*
 import org.jetbrains.kotlin.commonizer.stats.FileStatsOutput
 import org.jetbrains.kotlin.commonizer.stats.StatsCollector
 import org.jetbrains.kotlin.commonizer.stats.StatsType
-import org.jetbrains.kotlin.commonizer.utils.ProgressLogger
 import org.jetbrains.kotlin.konan.library.KONAN_DISTRIBUTION_KLIB_DIR
 import org.jetbrains.kotlin.konan.library.KONAN_DISTRIBUTION_PLATFORM_LIBS_DIR
 import java.io.File
@@ -59,7 +58,7 @@ internal class NativeKlibCommonize(options: Collection<Option<*>>) : Task(option
         val konanTargets = outputTargets.konanTargets
         val commonizerTargets = konanTargets.map(::CommonizerTarget)
 
-        val logger = ProgressLogger(CliLoggerAdapter(logLevel, 2))
+        val logger = CliLoggerAdapter(logLevel, 2)
         val libraryLoader = DefaultNativeLibraryLoader(logger)
         val statsCollector = StatsCollector(statsType, commonizerTargets)
         val repository = FilesRepository(targetLibraries.toSet(), libraryLoader)
@@ -76,7 +75,7 @@ internal class NativeKlibCommonize(options: Collection<Option<*>>) : Task(option
                     CommonizerDependencyRepository(dependencyLibraries.toSet(), libraryLoader),
             resultsConsumer = resultsConsumer,
             statsCollector = statsCollector,
-            progressLogger = logger
+            logger = logger
         ).run()
 
         statsCollector?.writeTo(FileStatsOutput(destination, statsType.name.lowercase()))
@@ -95,7 +94,7 @@ internal class NativeDistributionCommonize(options: Collection<Option<*>>) : Tas
         val statsType = getOptional<StatsType, StatsTypeOptionType> { it == "log-stats" } ?: StatsType.NONE
         val logLevel = getOptional<CommonizerLogLevel, LogLevelOptionType>() ?: CommonizerLogLevel.Quiet
 
-        val logger = ProgressLogger(CliLoggerAdapter(logLevel, 2))
+        val logger = CliLoggerAdapter(logLevel, 2)
         val libraryLoader = DefaultNativeLibraryLoader(logger)
         val repository = KonanDistributionRepository(distribution, outputTargets.konanTargets, libraryLoader)
         val statsCollector = StatsCollector(statsType, outputTargets.allLeaves().toList())
@@ -106,7 +105,7 @@ internal class NativeDistributionCommonize(options: Collection<Option<*>>) : Tas
         }
 
         val descriptionSuffix = estimateLibrariesCount(repository, outputTargets.allLeaves()).let { " ($it items)" }
-        logger.log("${logPrefix}Preparing commonized Kotlin/Native libraries for $outputTargets$descriptionSuffix")
+        logger.log("${logPrefix}Preparing commonized Kotlin/Native libraries for ${outputTargets.allLeaves()}$descriptionSuffix")
 
         LibraryCommonizer(
             outputTargets = outputTargets,
@@ -114,7 +113,7 @@ internal class NativeDistributionCommonize(options: Collection<Option<*>>) : Tas
             dependencies = StdlibRepository(distribution, libraryLoader),
             resultsConsumer = resultsConsumer,
             statsCollector = statsCollector,
-            progressLogger = logger
+            logger = logger
         ).run()
 
         statsCollector?.writeTo(FileStatsOutput(destination, statsType.name.lowercase()))

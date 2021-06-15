@@ -8,7 +8,8 @@ package org.jetbrains.kotlin.commonizer.konan
 import org.jetbrains.kotlin.commonizer.*
 import org.jetbrains.kotlin.commonizer.repository.Repository
 import org.jetbrains.kotlin.commonizer.stats.StatsCollector
-import org.jetbrains.kotlin.commonizer.utils.ProgressLogger
+import org.jetbrains.kotlin.commonizer.utils.progress
+import org.jetbrains.kotlin.util.Logger
 import org.jetbrains.kotlin.utils.addToStdlib.ifNotEmpty
 
 internal class LibraryCommonizer internal constructor(
@@ -17,43 +18,45 @@ internal class LibraryCommonizer internal constructor(
     private val dependencies: Repository,
     private val resultsConsumer: ResultsConsumer,
     private val statsCollector: StatsCollector?,
-    private val progressLogger: ProgressLogger
+    private val logger: Logger
 ) {
 
     fun run() {
-        checkPreconditions()
-        val allLibraries = loadLibraries()
-        commonizeAndSaveResults(allLibraries)
-        progressLogger.logTotal()
+        logger.progress("Commonized all targets") {
+            checkPreconditions()
+            val allLibraries = loadLibraries()
+            commonizeAndSaveResults(allLibraries)
+        }
     }
 
     private fun loadLibraries(): TargetDependent<NativeLibrariesToCommonize?> {
-        val libraries = EagerTargetDependent(outputTargets.allLeaves()) { target ->
-            repository.getLibraries(target).toList().ifNotEmpty { NativeLibrariesToCommonize(target, this) }
-        }
+        return logger.progress("Resolved all libraries for commonization") {
+            val libraries = EagerTargetDependent(outputTargets.allLeaves()) { target ->
+                repository.getLibraries(target).toList().ifNotEmpty { NativeLibrariesToCommonize(target, this) }
+            }
 
-        libraries.forEachWithTarget { target, librariesOrNull ->
-            if (librariesOrNull == null)
-                progressLogger.warning(
-                    "No libraries found for target ${target.prettyName}. This target will be excluded from commonization."
-                )
+            libraries.forEachWithTarget { target, librariesOrNull ->
+                if (librariesOrNull == null)
+                    logger.warning(
+                        "No libraries found for target ${target}. This target will be excluded from commonization."
+                    )
+            }
+            libraries
         }
-
-        progressLogger.progress("Resolved libraries to be commonized")
-        return libraries
     }
 
     private fun commonizeAndSaveResults(libraries: TargetDependent<NativeLibrariesToCommonize?>) {
-        val parameters = CommonizerParameters(
-            outputTargets = outputTargets,
-            targetProviders = libraries.map { target, targetLibraries -> createTargetProvider(target, targetLibraries) },
-            manifestProvider = createManifestProvider(libraries),
-            dependenciesProvider = createDependenciesProvider(),
-            resultsConsumer = resultsConsumer,
-            statsCollector = statsCollector,
-            logger = progressLogger
+        runCommonization(
+            CommonizerParameters(
+                outputTargets = outputTargets,
+                targetProviders = libraries.map { target, targetLibraries -> createTargetProvider(target, targetLibraries) },
+                manifestProvider = createManifestProvider(libraries),
+                dependenciesProvider = createDependenciesProvider(),
+                resultsConsumer = resultsConsumer,
+                statsCollector = statsCollector,
+                logger = logger
+            )
         )
-        runCommonization(parameters)
     }
 
     private fun createTargetProvider(

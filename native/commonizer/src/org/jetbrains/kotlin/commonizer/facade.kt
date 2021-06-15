@@ -9,6 +9,8 @@ import org.jetbrains.kotlin.commonizer.ResultsConsumer.Status
 import org.jetbrains.kotlin.commonizer.mergedtree.CirRootNode
 import org.jetbrains.kotlin.commonizer.tree.CirTreeRoot
 import org.jetbrains.kotlin.commonizer.tree.assembleCirTree
+import org.jetbrains.kotlin.commonizer.tree.deserializeCirTree
+import org.jetbrains.kotlin.commonizer.utils.progress
 import org.jetbrains.kotlin.storage.LockBasedStorageManager
 import org.jetbrains.kotlin.storage.StorageManager
 
@@ -35,7 +37,7 @@ private fun createQueue(parameters: CommonizerParameters): List<EnqueuedTarget> 
 interface CommonizationContext {
     val storageManager: StorageManager
     val parameters: CommonizerParameters
-    fun onTargetCommonized(mergedTree: CirRootNode, target: SharedCommonizerTarget)
+    fun serializeTarget(mergedTree: CirRootNode, target: SharedCommonizerTarget)
     fun getCirTree(target: CommonizerTarget): CirTreeRoot?
 }
 
@@ -51,8 +53,8 @@ private class CommonizationContextImpl(
 
     private val providedTargets: Map<CommonizerTarget, Lazy<CirTreeRoot?>> = parameters.targetProviders.targets.associateWith { target ->
         lazy {
-            parameters.deserialize(target).also {
-                parameters.logger?.progress("${target.prettyName}: Deserialized declarations")
+            parameters.logger.progress(target, "Deserialized declarations") {
+                deserializeCirTree(parameters, target)
             }
         }
     }
@@ -62,8 +64,8 @@ private class CommonizationContextImpl(
         else enqueuedTargets.getValue(target).value
     }
 
-    override fun onTargetCommonized(mergedTree: CirRootNode, target: SharedCommonizerTarget) {
-        parameters.serialize(mergedTree, target)
+    override fun serializeTarget(mergedTree: CirRootNode, target: SharedCommonizerTarget) {
+        serialize(parameters, mergedTree, target)
     }
 
     fun toExecutable(): () -> Unit = {
@@ -79,15 +81,23 @@ private class EnqueuedTarget(
 }
 
 private fun enqueueTarget(target: SharedCommonizerTarget): EnqueuedTarget = EnqueuedTarget(target) {
-    val inputs = EagerTargetDependent(selectInputTargets(parameters.outputTargets.withAllLeaves(), target), ::getCirTree)
-    parameters.logger?.progress("${target.prettyName}: Resolved declarations")
-    val mergedTree = parameters.commonize(target, inputs, storageManager) ?: return@EnqueuedTarget null
-    parameters.logger?.progress("${target.prettyName}: Commonized declarations")
-    onTargetCommonized(mergedTree, target)
-    parameters.logger?.progress("${target.prettyName}: Serialized declarations")
+    val inputTargets = selectInputTargets(parameters.outputTargets.withAllLeaves(), target)
+    val inputs = EagerTargetDependent(inputTargets, ::getCirTree)
+
+    val mergedTree = parameters.logger.progress(target, "Commonized declarations from $inputTargets") {
+        commonize(parameters, storageManager, target, inputs) ?: return@EnqueuedTarget null
+    }
+
+    parameters.logger.progress(target, "Serialized target") {
+        serializeTarget(mergedTree, target)
+    }
+
     mergedTree.assembleCirTree()
 }
 
+// Worst prototype implementation I have ever produced.
+//  literally does not do the "job" at all.
+//   still produces some output that "can be used"
 private fun selectInputTargets(targets: Set<CommonizerTarget>, target: SharedCommonizerTarget): Set<CommonizerTarget> {
     val allTargetLeaves = target.allLeaves()
 
@@ -96,6 +106,7 @@ private fun selectInputTargets(targets: Set<CommonizerTarget>, target: SharedCom
         .sortedByDescending { it.allLeaves().size }
 
     return subsets.fold(setOf()) { acc, subset ->
+        if (acc.allLeaves().containsAll(subset.allLeaves())) return@fold acc
         val next = acc + subset
         if (next.allLeaves().size == allTargetLeaves.size) return next
         if (next.allLeaves().size < allTargetLeaves.size) next else acc
