@@ -13,12 +13,10 @@ import org.jetbrains.kotlin.commonizer.transformer.Checked.Companion.invoke
 import org.jetbrains.kotlin.commonizer.transformer.InlineTypeAliasCirNodeTransformer
 import org.jetbrains.kotlin.commonizer.tree.CirTreeRoot
 import org.jetbrains.kotlin.commonizer.tree.mergeCirTree
-import org.jetbrains.kotlin.storage.StorageManager
 
 
 internal fun commonize(
     parameters: CommonizerParameters,
-    storageManager: StorageManager,
     target: CommonizerTarget,
     cirTrees: TargetDependent<CirTreeRoot?>
 ): CirRootNode? {
@@ -31,8 +29,8 @@ internal fun commonize(
         commonDependencies = parameters.dependencyClassifiers(target)
     )
 
-    val mergedTree = mergeCirTree(storageManager, classifiers, availableTrees)
-    InlineTypeAliasCirNodeTransformer(storageManager, classifiers).invoke(mergedTree)
+    val mergedTree = mergeCirTree(parameters.storageManager, classifiers, availableTrees)
+    InlineTypeAliasCirNodeTransformer(parameters.storageManager, classifiers).invoke(mergedTree)
     mergedTree.accept(CommonizationVisitor(classifiers, mergedTree), Unit)
 
     return mergedTree

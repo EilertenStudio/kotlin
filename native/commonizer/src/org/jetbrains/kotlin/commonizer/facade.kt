@@ -11,8 +11,6 @@ import org.jetbrains.kotlin.commonizer.tree.CirTreeRoot
 import org.jetbrains.kotlin.commonizer.tree.assembleCirTree
 import org.jetbrains.kotlin.commonizer.tree.deserializeCirTree
 import org.jetbrains.kotlin.commonizer.utils.progress
-import org.jetbrains.kotlin.storage.LockBasedStorageManager
-import org.jetbrains.kotlin.storage.StorageManager
 
 fun runCommonization(parameters: CommonizerParameters) {
     if (!parameters.containsCommonModuleNames()) {
@@ -35,7 +33,6 @@ private fun createQueue(parameters: CommonizerParameters): List<EnqueuedTarget> 
 
 
 interface CommonizationContext {
-    val storageManager: StorageManager
     val parameters: CommonizerParameters
     fun serializeTarget(mergedTree: CirRootNode, target: SharedCommonizerTarget)
     fun getCirTree(target: CommonizerTarget): CirTreeRoot?
@@ -44,8 +41,6 @@ interface CommonizationContext {
 private class CommonizationContextImpl(
     override val parameters: CommonizerParameters, private val queue: List<EnqueuedTarget>
 ) : CommonizationContext {
-
-    override val storageManager: StorageManager = LockBasedStorageManager("Commonizer")
 
     private val enqueuedTargets: Map<CommonizerTarget, Lazy<CirTreeRoot?>> = queue.associate { enqueuedTarget ->
         enqueuedTarget.target to lazy(LazyThreadSafetyMode.NONE) { enqueuedTarget(this) }
@@ -85,7 +80,7 @@ private fun enqueueTarget(target: SharedCommonizerTarget): EnqueuedTarget = Enqu
     val inputs = EagerTargetDependent(inputTargets, ::getCirTree)
 
     val mergedTree = parameters.logger.progress(target, "Commonized declarations from $inputTargets") {
-        commonize(parameters, storageManager, target, inputs) ?: return@EnqueuedTarget null
+        commonize(parameters, target, inputs) ?: return@EnqueuedTarget null
     }
 
     parameters.logger.progress(target, "Serialized target") {

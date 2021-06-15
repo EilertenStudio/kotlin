@@ -76,7 +76,7 @@ abstract class AbstractInlineSourcesCommonizationTest : KtInlineSourceCommonizer
                 val dependenciesList = dependencies.getOrPut(target) { mutableListOf() }
                 val dependency = inlineSourceBuilderFactory[target].createModule {
                     builder()
-                    name = "${target.prettyName}-dependency-${dependenciesList.size}-$name"
+                    name = "$target-dependency-${dependenciesList.size}-$name"
                 }
                 dependenciesList.add(dependency)
             }

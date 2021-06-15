@@ -9,6 +9,8 @@ import org.jetbrains.kotlin.commonizer.konan.NativeManifestDataProvider
 import org.jetbrains.kotlin.commonizer.mergedtree.CirFictitiousFunctionClassifiers
 import org.jetbrains.kotlin.commonizer.mergedtree.CirProvidedClassifiers
 import org.jetbrains.kotlin.commonizer.stats.StatsCollector
+import org.jetbrains.kotlin.storage.LockBasedStorageManager
+import org.jetbrains.kotlin.storage.StorageManager
 import org.jetbrains.kotlin.util.Logger
 
 data class CommonizerParameters(
@@ -17,6 +19,7 @@ data class CommonizerParameters(
     val dependenciesProvider: TargetDependent<ModulesProvider?>,
     val targetProviders: TargetDependent<TargetProvider?>,
     val resultsConsumer: ResultsConsumer,
+    val storageManager: StorageManager = LockBasedStorageManager.NO_LOCKS,
     val statsCollector: StatsCollector? = null,
     val logger: Logger? = null,
 )
