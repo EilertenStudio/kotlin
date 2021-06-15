@@ -5,8 +5,8 @@
 
 package org.jetbrains.kotlin.commonizer.utils
 
-import org.jetbrains.kotlin.commonizer.cli.CliLoggerAdapter
 import org.jetbrains.kotlin.commonizer.CommonizerLogLevel
+import org.jetbrains.kotlin.commonizer.cli.CliLoggerAdapter
 import org.jetbrains.kotlin.util.Logger
 
 class ProgressLogger(

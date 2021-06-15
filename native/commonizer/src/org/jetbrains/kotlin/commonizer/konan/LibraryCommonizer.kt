@@ -56,7 +56,10 @@ internal class LibraryCommonizer internal constructor(
         runCommonization(parameters)
     }
 
-    private fun createTargetProvider(target: CommonizerTarget, libraries: NativeLibrariesToCommonize?): TargetProvider? {
+    private fun createTargetProvider(
+        target: CommonizerTarget,
+        libraries: NativeLibrariesToCommonize?
+    ): TargetProvider? {
         if (libraries == null) return null
         return TargetProvider(
             target = target,

@@ -7,8 +7,9 @@ package org.jetbrains.kotlin.commonizer.konan
 
 import org.jetbrains.kotlin.commonizer.*
 
+// TODO NOW: Remove
 internal object LoggingResultsConsumer: ResultsConsumer {
     override fun targetConsumed(parameters: CommonizerParameters, target: CommonizerTarget) {
-        parameters.logger?.progress("Written libraries for $target")
+        //parameters.logger?.progress("Written libraries for $target")
     }
 }
