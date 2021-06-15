@@ -13,22 +13,22 @@ import org.jetbrains.kotlin.library.SerializedMetadata
 
 private val KLIB_FRAGMENT_WRITE_STRATEGY = ChunkedKlibModuleFragmentWriteStrategy()
 
-internal fun serialize(
-    commonizerParameters: CommonizerParameters,
+internal fun serializeTarget(
+    parameters: CommonizerParameters,
     mergedTree: CirRootNode,
-    commonTarget: CommonizerTarget
+    target: SharedCommonizerTarget
 ) {
-    CirTreeSerializer.serializeSingleTarget(mergedTree, mergedTree.indexOfCommon, commonizerParameters.statsCollector) { metadataModule ->
+    CirTreeSerializer.serializeSingleTarget(mergedTree, mergedTree.indexOfCommon, parameters.statsCollector) { metadataModule ->
         val libraryName = metadataModule.name
         val serializedMetadata = with(metadataModule.write(KLIB_FRAGMENT_WRITE_STRATEGY)) {
             SerializedMetadata(header, fragments, fragmentNames)
         }
-        val manifestData = commonizerParameters.manifestProvider[commonTarget].buildManifest(libraryName)
-        commonizerParameters.resultsConsumer.consume(
-            commonizerParameters, commonTarget,
+        val manifestData = parameters.manifestProvider[target].buildManifest(libraryName)
+        parameters.resultsConsumer.consume(
+            parameters, target,
             ResultsConsumer.ModuleResult.Commonized(libraryName, serializedMetadata, manifestData)
         )
     }
-    commonizerParameters.resultsConsumer.targetConsumed(commonizerParameters, commonTarget)
+    parameters.resultsConsumer.targetConsumed(parameters, target)
 }
 

@@ -84,6 +84,7 @@ public val CommonizerTarget.konanTargets: Set<KonanTarget>
 
 public val Iterable<CommonizerTarget>.konanTargets: Set<KonanTarget> get() = flatMapTo(mutableSetOf()) { it.konanTargets }
 
+// REMOVE
 public val CommonizerTarget.level: Int
     get() {
         return when (this) {

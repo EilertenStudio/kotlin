@@ -6,104 +6,49 @@
 package org.jetbrains.kotlin.commonizer
 
 import org.jetbrains.kotlin.commonizer.ResultsConsumer.Status
-import org.jetbrains.kotlin.commonizer.mergedtree.CirRootNode
 import org.jetbrains.kotlin.commonizer.tree.CirTreeRoot
-import org.jetbrains.kotlin.commonizer.tree.assembleCirTree
 import org.jetbrains.kotlin.commonizer.tree.deserializeCirTree
 import org.jetbrains.kotlin.commonizer.utils.progress
+import java.util.Comparator.comparing
 
 fun runCommonization(parameters: CommonizerParameters) {
     if (!parameters.containsCommonModuleNames()) {
         parameters.resultsConsumer.allConsumed(parameters, Status.NOTHING_TO_DO)
         return
     }
-
-    val queue = createQueue(parameters)
-    val context = CommonizationContextImpl(parameters, queue)
-    context.toExecutable().invoke()
-
+    runCommonization(parameters, parameters.outputTargets.map(::enqueueTarget))
     parameters.resultsConsumer.allConsumed(parameters, Status.DONE)
 }
 
-private fun createQueue(parameters: CommonizerParameters): List<EnqueuedTarget> {
-    return parameters.outputTargets
-        .map { target -> enqueueTarget(target) }
-        .sortedBy { enqueuedTarget -> enqueuedTarget.target.targets.size }
-}
+internal fun runCommonization(parameters: CommonizerParameters, queue: List<EnqueuedCommonizerTarget>) {
+    val enqueuedTargets = queue.associate { enqueuedTarget -> enqueuedTarget.target as CommonizerTarget to enqueuedTarget.producer }
 
-
-interface CommonizationContext {
-    val parameters: CommonizerParameters
-    fun serializeTarget(mergedTree: CirRootNode, target: SharedCommonizerTarget)
-    fun getCirTree(target: CommonizerTarget): CirTreeRoot?
-}
-
-private class CommonizationContextImpl(
-    override val parameters: CommonizerParameters, private val queue: List<EnqueuedTarget>
-) : CommonizationContext {
-
-    private val enqueuedTargets: Map<CommonizerTarget, Lazy<CirTreeRoot?>> = queue.associate { enqueuedTarget ->
-        enqueuedTarget.target to lazy(LazyThreadSafetyMode.NONE) { enqueuedTarget(this) }
-    }
-
-    private val providedTargets: Map<CommonizerTarget, Lazy<CirTreeRoot?>> = parameters.targetProviders.targets.associateWith { target ->
-        lazy {
+    val providedTargets = parameters.targetProviders.targets.associateWith { target ->
+        parameters.storageManager.createNullableLazyValue {
             parameters.logger.progress(target, "Deserialized declarations") {
                 deserializeCirTree(parameters, target)
             }
         }
     }
 
-    override fun getCirTree(target: CommonizerTarget): CirTreeRoot? {
-        return if (target in parameters.targetProviders.targets) return providedTargets.getValue(target).value
-        else enqueuedTargets.getValue(target).value
+    val context = object : EnqueuedCommonizerTarget.AbstractContext(parameters) {
+        private val lazyEnqueuedTargets = enqueuedTargets
+            .mapValues { (_, producer) -> parameters.storageManager.createNullableLazyValue { producer.invoke(this) } }
+
+        override fun requireCirTree(target: CommonizerTarget): CirTreeRoot? {
+            return if (target in providedTargets) providedTargets.getValue(target).invoke()
+            else lazyEnqueuedTargets.getValue(target).invoke()
+        }
+
+        fun createTasks(): List<() -> Unit> {
+            return lazyEnqueuedTargets.keys
+                .sortedWith(comparing<CommonizerTarget?, Int?> { it.allLeaves().size }.then(comparing { it.konanTargets.size }))
+                .map(lazyEnqueuedTargets::getValue)
+                .map { { it.invoke() } }
+        }
     }
 
-    override fun serializeTarget(mergedTree: CirRootNode, target: SharedCommonizerTarget) {
-        serialize(parameters, mergedTree, target)
-    }
-
-    fun toExecutable(): () -> Unit = {
-        queue.forEach { enqueuedTargets.getValue(it.target).value }
-    }
+    runCommonization(context.createTasks())
 }
 
-private class EnqueuedTarget(
-    val target: SharedCommonizerTarget,
-    private val producer: CommonizationContext.() -> CirTreeRoot?
-) {
-    operator fun invoke(declarations: CommonizationContext): CirTreeRoot? = declarations.producer()
-}
-
-private fun enqueueTarget(target: SharedCommonizerTarget): EnqueuedTarget = EnqueuedTarget(target) {
-    val inputTargets = selectInputTargets(parameters.outputTargets.withAllLeaves(), target)
-    val inputs = EagerTargetDependent(inputTargets, ::getCirTree)
-
-    val mergedTree = parameters.logger.progress(target, "Commonized declarations from $inputTargets") {
-        commonize(parameters, target, inputs) ?: return@EnqueuedTarget null
-    }
-
-    parameters.logger.progress(target, "Serialized target") {
-        serializeTarget(mergedTree, target)
-    }
-
-    mergedTree.assembleCirTree()
-}
-
-// Worst prototype implementation I have ever produced.
-//  literally does not do the "job" at all.
-//   still produces some output that "can be used"
-private fun selectInputTargets(targets: Set<CommonizerTarget>, target: SharedCommonizerTarget): Set<CommonizerTarget> {
-    val allTargetLeaves = target.allLeaves()
-
-    val subsets = targets.filter { it != target }
-        .filter { allTargetLeaves.containsAll(it.allLeaves()) }
-        .sortedByDescending { it.allLeaves().size }
-
-    return subsets.fold(setOf()) { acc, subset ->
-        if (acc.allLeaves().containsAll(subset.allLeaves())) return@fold acc
-        val next = acc + subset
-        if (next.allLeaves().size == allTargetLeaves.size) return next
-        if (next.allLeaves().size < allTargetLeaves.size) next else acc
-    }
-}
+private fun runCommonization(tasks: List<Function0<*>>) = tasks.forEach { it.invoke() }
