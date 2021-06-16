@@ -6,6 +6,7 @@
 package org.jetbrains.kotlin.commonizer
 
 import org.jetbrains.kotlin.commonizer.utils.isProperSubsetOf
+import org.jetbrains.kotlin.commonizer.utils.isSubsetOf
 
 internal fun interface InputTargetsSelector {
     operator fun invoke(inputTargets: Set<CommonizerTarget>, outputTarget: SharedCommonizerTarget): Set<CommonizerTarget>
@@ -22,7 +23,7 @@ internal object DefaultInputTargetsSelector : InputTargetsSelector {
     override fun invoke(inputTargets: Set<CommonizerTarget>, outputTarget: SharedCommonizerTarget): Set<CommonizerTarget> {
 
         val subsetInputTargets = inputTargets
-            .filter { inputTarget -> inputTarget.allLeaves() isProperSubsetOf outputTarget.allLeaves() }
+            .filter { inputTarget -> inputTarget != outputTarget && inputTarget.allLeaves() isSubsetOf outputTarget.allLeaves() }
             .sortedBy { it.allLeaves().size }
 
         val disjointSubsetInputTargets = subsetInputTargets

@@ -5,29 +5,58 @@
 
 package org.jetbrains.kotlin.commonizer
 
+import org.jetbrains.kotlin.commonizer.mergedtree.CirRootNode
 import org.jetbrains.kotlin.commonizer.tree.CirTreeRoot
 import org.jetbrains.kotlin.commonizer.tree.assembleCirTree
 import org.jetbrains.kotlin.commonizer.tree.deserializeTarget
 import org.jetbrains.kotlin.storage.NullableLazyValue
+import org.jetbrains.kotlin.storage.StorageManager
 
 private typealias OutputCommonizerTarget = SharedCommonizerTarget
 private typealias InputCommonizerTarget = CommonizerTarget
 
+internal fun CommonizerQueue(parameters: CommonizerParameters): CommonizerQueue {
+    return CommonizerQueue(
+        storageManager = parameters.storageManager,
+        outputTargets = parameters.outputTargets,
+        deserializers = parameters.targetProviders.mapTargets { target ->
+            CommonizerQueue.Deserializer { deserializeTarget(parameters, target) }
+        },
+        commonizer = { inputs, output -> commonizeTarget(parameters, inputs, output) },
+        serializer = { declarations, outputTarget -> serializeTarget(parameters, declarations, outputTarget) },
+        inputTargetsSelector = DefaultInputTargetsSelector
+    )
+}
+
 internal class CommonizerQueue(
-    private val parameters: CommonizerParameters,
-    private val inputTargetsSelector: InputTargetsSelector = DefaultInputTargetsSelector
+    private val storageManager: StorageManager,
+    private val outputTargets: Set<OutputCommonizerTarget>,
+    private val deserializers: TargetDependent<Deserializer>,
+    private val commonizer: Commonizer,
+    private val serializer: Serializer,
+    private val inputTargetsSelector: InputTargetsSelector
 ) {
+
+    fun interface Deserializer {
+        operator fun invoke(): CirTreeRoot?
+    }
+
+    fun interface Commonizer {
+        operator fun invoke(inputs: TargetDependent<CirTreeRoot?>, output: SharedCommonizerTarget): CirRootNode?
+    }
+
+    fun interface Serializer {
+        operator fun invoke(declarations: CirRootNode, outputTarget: OutputCommonizerTarget)
+    }
 
     /**
      * Targets that can just be deserialized and do not need to be commonized.
      * All leaf targets are expected to be provided.
      * Previously commonized targets can also be provide (TODO)
      */
-    private val providedTargets: MutableMap<InputCommonizerTarget, NullableLazyValue<CirTreeRoot>> =
-        parameters.targetProviders.targets.associateWithTo(mutableMapOf()) { target ->
-            parameters.storageManager.createNullableLazyValue {
-                deserializeTarget(parameters, target)
-            }
+    private val deserializedTargets: MutableMap<InputCommonizerTarget, NullableLazyValue<CirTreeRoot>> =
+        deserializers.toMap().mapValuesTo(mutableMapOf()) { (_, deserializer) ->
+            storageManager.createNullableLazyValue { deserializer() }
         }
 
     /**
@@ -42,12 +71,20 @@ internal class CommonizerQueue(
      */
     private val targetDependencies: MutableMap<OutputCommonizerTarget, Set<InputCommonizerTarget>> = mutableMapOf()
 
+    val retainedDeserializedTargets: Set<InputCommonizerTarget> get() = deserializedTargets.keys
+
+    val retainedCommonizedTargets: Set<OutputCommonizerTarget> get() = commonizedTargets.keys
+
+    val retainedTargetDependencies: Map<OutputCommonizerTarget, Set<InputCommonizerTarget>> get() = targetDependencies.toMap()
+
+    val pendingOutputTargets: Set<CommonizerTarget> get() = targetDependencies.keys
+
     /**
      * Runs all tasks/targets in this queue
      */
     fun invokeAll() {
-        parameters.outputTargets.forEach { outputTarget -> invokeTarget(outputTarget) }
-        assert(providedTargets.isEmpty()) { "Expected 'providedTargets' to be empty. Found ${providedTargets.keys}" }
+        outputTargets.forEach { outputTarget -> invokeTarget(outputTarget) }
+        assert(deserializedTargets.isEmpty()) { "Expected 'deserializedTargets' to be empty. Found ${deserializedTargets.keys}" }
         assert(commonizedTargets.isEmpty()) { "Expected 'commonizedTargets' to be empty. Found ${commonizedTargets.keys}" }
         assert(targetDependencies.isEmpty()) { "Expected 'targetDependencies' to be empty. Found $targetDependencies" }
     }
@@ -59,7 +96,7 @@ internal class CommonizerQueue(
     private fun enqueue(outputTarget: OutputCommonizerTarget) {
         registerTargetDependencies(outputTarget)
 
-        commonizedTargets[outputTarget] = parameters.storageManager.createNullableLazyValue {
+        commonizedTargets[outputTarget] = storageManager.createNullableLazyValue {
             commonize(outputTarget)
         }
     }
@@ -68,36 +105,40 @@ internal class CommonizerQueue(
         val inputTargets = targetDependencies.getValue(target)
 
         val inputDeclarations = EagerTargetDependent(inputTargets) { inputTarget ->
-            (providedTargets[inputTarget] ?: commonizedTargets[inputTarget]
+            (deserializedTargets[inputTarget] ?: commonizedTargets[inputTarget]
             ?: throw IllegalStateException("Missing inputTarget $inputTarget")).invoke()
         }
 
-        return commonizeTarget(parameters, inputDeclarations, target)
+        return commonizer(inputDeclarations, target)
             .also { removeTargetDependencies(target) }
-            ?.also { commonizedDeclarations -> serializeTarget(parameters, commonizedDeclarations, target) }
+            ?.also { commonizedDeclarations -> serializer(commonizedDeclarations, target) }
             ?.assembleCirTree()
 
     }
 
     private fun registerTargetDependencies(outputTarget: OutputCommonizerTarget) {
-        targetDependencies[outputTarget] = inputTargetsSelector(parameters, outputTarget)
+        targetDependencies[outputTarget] = inputTargetsSelector(outputTargets + deserializers.targets, outputTarget)
     }
 
     private fun removeTargetDependencies(target: OutputCommonizerTarget) {
-        val inputTargets = targetDependencies.remove(target) ?: return
-        val referencedInputTargets = targetDependencies.values.flatten().toSet()
+        targetDependencies.remove(target) ?: return
+        val referencedDependencyTargets = targetDependencies.values.flatten().toSet()
 
-        // Remove targets that are not required anymore
-        inputTargets.forEach { inputTarget ->
-            if (inputTarget !in referencedInputTargets) {
-                providedTargets.remove(inputTarget)
-                commonizedTargets.remove(inputTarget)
-            }
-        }
+        // Release all commonized targets that are not pending anymore (are already invoked)
+        //  and that are not listed as input target dependency for any further commonization
+        //  Release all commonized targets that no one intends to use any further.
+        commonizedTargets.keys
+            .filter { it !in referencedDependencyTargets && it !in pendingOutputTargets }
+            .forEach(commonizedTargets::remove)
+
+        // Release all deserialized targets that are not referenced as any further dependency anymore.
+        //  Release all deserialized targets that no one intends to use any further
+        deserializedTargets.keys
+            .filter { it !in referencedDependencyTargets }
+            .forEach(deserializedTargets::remove)
     }
 
     init {
-        parameters.outputTargets.forEach(this::enqueue)
+        outputTargets.forEach(this::enqueue)
     }
-
 }

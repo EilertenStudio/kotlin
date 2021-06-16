@@ -83,4 +83,31 @@ class DefaultInputTargetsSelectorTest {
             DefaultInputTargetsSelector(inputTargets, parseCommonizerTarget("(a, b, c, d, e, f)") as SharedCommonizerTarget)
         )
     }
+
+    @Test
+    fun `empty outputTarget`() {
+        assertEquals(
+            emptySet(),
+            DefaultInputTargetsSelector(emptySet(), parseCommonizerTarget("()") as SharedCommonizerTarget)
+        )
+    }
+
+    @Test
+    fun `single leaf outputTarget`() {
+        assertEquals(
+            setOf(LeafCommonizerTarget("a")),
+            DefaultInputTargetsSelector(setOf(LeafCommonizerTarget("a")), parseCommonizerTarget("(a)") as SharedCommonizerTarget)
+        )
+    }
+
+    @Test
+    fun `exact output available`() {
+        assertEquals(
+            setOf(parseCommonizerTarget("(a, b)"), parseCommonizerTarget("(c, d)")),
+            DefaultInputTargetsSelector(
+                setOf("a", "b", "c", "d", "(a, b)", "(c, d)", "(a, b, c, d)").map(::parseCommonizerTarget).toSet(),
+                parseCommonizerTarget("(a, b, c, d)") as SharedCommonizerTarget
+            )
+        )
+    }
 }
