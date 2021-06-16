@@ -391,6 +391,12 @@ private val copyPropertyAccessorBodiesLoweringPass = makeDeclarationTransformerP
     prerequisite = setOf(propertyAccessorInlinerLoweringPhase)
 )
 
+private val booleanPropertyInExternalDiagnostic = makeBodyLoweringPhase(
+    ::BooleanPropertyInExternalDiagnostic,
+    name = "BooleanPropertyInExternalDiagnostic",
+    description = "Add diagnostic to find nullable boolean in externals"
+)
+
 private val foldConstantLoweringPhase = makeBodyLoweringPhase(
     { FoldConstantLowering(it, true) },
     name = "FoldConstantLowering",
@@ -779,6 +785,7 @@ private val loweringList = listOf<Lowering>(
     removeInitializersForLazyProperties,
     propertyAccessorInlinerLoweringPhase,
     copyPropertyAccessorBodiesLoweringPass,
+    booleanPropertyInExternalDiagnostic,
     foldConstantLoweringPhase,
     privateMembersLoweringPhase,
     privateMemberUsagesLoweringPhase,
