@@ -140,44 +140,40 @@ internal fun StaticData.createKTypeObject(type: IrType) : ConstPointer{
 
     val classifier = type.classifier as? IrClassSymbol ?: throw NotImplementedError()
 
-    val kVarianceType = context.ir.symbols.kVariance.owner
-    val kProjectionType = context.ir.symbols.kTypeProjection.owner
-
-    val arguments = type.arguments.map {
+    val argumentVairance = mutableListOf<ConstValue>()
+    val argumentType = mutableListOf<ConstValue>()
+    for (argument in type.arguments) {
         val variance: ConstValue
         val projectionType: ConstValue
-        when (it) {
+        when (argument) {
             is IrStarProjection -> {
-                variance = NullPointer(kObjHeader)
+                variance = Int32(-1)
                 projectionType = NullPointer(kObjHeader)
             }
             is IrTypeProjection -> {
-                val loweredEnum = context.specialDeclarationsFactory.getLoweredEnum(kVarianceType) as InternalLoweredEnum
-                val varianceName = when (it.variance) {
+                val loweredEnum = context.specialDeclarationsFactory.getLoweredEnum(context.ir.symbols.kVariance.owner) as InternalLoweredEnum
+                val varianceName = when (argument.variance) {
                     Variance.INVARIANT -> context.ir.symbols.kVarianceInvariant.owner.name
                     Variance.IN_VARIANCE -> context.ir.symbols.kVarianceIn.owner.name
                     Variance.OUT_VARIANCE -> context.ir.symbols.kVarianceOut.owner.name
                 }
-                val varianceOrdinal = loweredEnum.entriesMap[varianceName]!!.ordinal
-                variance = createConstKotlinObject(kVarianceType, mapOf(
-                        "name" to kotlinStringLiteral(varianceName.toString()),
-                        "ordinal" to Int32(varianceOrdinal)
-                ))
-                projectionType = kotlinTypeObject(it.type)
+                variance = Int32(loweredEnum.entriesMap[varianceName]!!.ordinal)
+                projectionType = kotlinTypeObject(argument.type)
             }
             else -> throw NotImplementedError()
         }
-        createConstKotlinObject(kProjectionType, mapOf(
-                "variance" to variance,
-                "type" to projectionType,
-        ))
+        argumentVairance.add(variance)
+        argumentType.add(projectionType)
     }
 
-    val argumentsArray = createConstKotlinArray(kProjectionType, arguments)
+    val arguments = createConstKotlinObject(context.ir.symbols.kTypeProjectionSpecialList.owner, mapOf(
+            "varianceOrdinal" to createConstKotlinArray(context.ir.symbols.int.owner, argumentVairance),
+            "type" to createConstKotlinArray(context.ir.symbols.kTypeImpl.owner, argumentType)
+    ))
 
     return createConstKotlinObject(context.ir.symbols.kTypeImpl.owner, mapOf(
             "classifier" to createConstKotlinObject(context.ir.symbols.kClassImpl.owner, classifier.owner.typeInfoPtr),
-            "arguments" to createConstArrayList(argumentsArray, arguments.size),
+            "arguments" to arguments,
             "isMarkedNullable" to Int1(type.isNullable().toByte())
     ))
 }
