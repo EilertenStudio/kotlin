@@ -8,7 +8,6 @@ package org.jetbrains.kotlin.commonizer
 import org.jetbrains.kotlin.commonizer.mergedtree.CirRootNode
 import org.jetbrains.kotlin.commonizer.tree.CirTreeRoot
 import org.jetbrains.kotlin.commonizer.tree.assembleCirTree
-import org.jetbrains.kotlin.commonizer.tree.deserializeTarget
 import org.jetbrains.kotlin.storage.NullableLazyValue
 import org.jetbrains.kotlin.storage.StorageManager
 
@@ -52,7 +51,7 @@ internal class CommonizerQueue(
     /**
      * Targets that can just be deserialized and do not need to be commonized.
      * All leaf targets are expected to be provided.
-     * Previously commonized targets can also be provide (TODO)
+     * Previously commonized targets can also be provided
      */
     private val deserializedTargets: MutableMap<InputCommonizerTarget, NullableLazyValue<CirTreeRoot>> =
         deserializers.toMap().mapValuesTo(mutableMapOf()) { (_, deserializer) ->

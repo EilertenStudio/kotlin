@@ -27,15 +27,3 @@ internal val defaultCirTreeModuleDeserializer = CirTreeModuleDeserializer(
 internal val defaultCirTreeRootDeserializer = RootCirTreeDeserializer(
     defaultCirTreeModuleDeserializer
 )
-
-
-internal fun deserializeTarget(parameters: CommonizerParameters, target: TargetProvider): CirTreeRoot {
-    return parameters.logger.progress(target.target, "Deserialized declarations") {
-        defaultCirTreeRootDeserializer(parameters, target)
-    }
-}
-
-internal fun deserializeTarget(parameters: CommonizerParameters, target: CommonizerTarget): CirTreeRoot? {
-    val targetProvider = parameters.targetProviders[target] ?: return null
-    return deserializeTarget(parameters, targetProvider)
-}
