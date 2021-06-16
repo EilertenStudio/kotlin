@@ -18,17 +18,17 @@ import org.jetbrains.kotlin.commonizer.utils.progress
 
 internal fun commonizeTarget(
     parameters: CommonizerParameters,
-    target: CommonizerTarget,
-    inputDeclarations: TargetDependent<CirTreeRoot?>
+    inputs: TargetDependent<CirTreeRoot?>,
+    output: CommonizerTarget
 ): CirRootNode? {
-    parameters.logger.progress(target, "Commonized declarations from ${inputDeclarations.targets}") {
-        val availableTrees = inputDeclarations.filterNonNull()
+    parameters.logger.progress(output, "Commonized declarations from ${inputs.targets}") {
+        val availableTrees = inputs.filterNonNull()
         /* Nothing to merge */
         if (availableTrees.size == 0) return null
 
         val classifiers = CirKnownClassifiers(
             commonizedNodes = CirCommonizedClassifierNodes.default(),
-            commonDependencies = parameters.dependencyClassifiers(target)
+            commonDependencies = parameters.dependencyClassifiers(output)
         )
 
         val mergedTree = mergeCirTree(parameters.storageManager, classifiers, availableTrees)

@@ -8,10 +8,9 @@ package org.jetbrains.kotlin.commonizer.utils
 import org.jetbrains.kotlin.commonizer.CommonizerTarget
 import org.jetbrains.kotlin.util.Logger
 
-private const val ansiGreen = "\u001B[32m"
-private const val ansiBlueBackground = "\u001B[44m"
 private const val ansiReset = "\u001B[0m"
-private const val ansiCyan = "\u001B[36m"
+private const val ansiTimeColor = "\u001B[36m"
+private const val ansiTargetColor = "\u001B[32m"
 
 internal inline fun <T> Logger?.progress(message: String, action: () -> T): T {
     val clock = ResettableClockMark()
@@ -19,12 +18,12 @@ internal inline fun <T> Logger?.progress(message: String, action: () -> T): T {
     try {
         return action()
     } finally {
-        this?.log("$message ${ansiCyan}in ${clock.elapsedSinceLast()}$ansiReset")
+        this?.log("$message ${ansiTimeColor}in ${clock.elapsedSinceLast()}$ansiReset")
     }
 }
 
 internal inline fun <T> Logger?.progress(
     target: CommonizerTarget, message: String, action: () -> T
 ): T {
-    return progress("$ansiGreen$ansiBlueBackground[$target]$ansiReset: $message", action)
+    return progress("[$ansiTargetColor$target$ansiReset]: $message", action)
 }

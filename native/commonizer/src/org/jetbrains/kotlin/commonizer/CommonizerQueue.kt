@@ -13,7 +13,10 @@ import org.jetbrains.kotlin.storage.NullableLazyValue
 private typealias OutputCommonizerTarget = SharedCommonizerTarget
 private typealias InputCommonizerTarget = CommonizerTarget
 
-internal class CommonizerQueue(private val parameters: CommonizerParameters) {
+internal class CommonizerQueue(
+    private val parameters: CommonizerParameters,
+    private val inputTargetsSelector: InputTargetsSelector = DefaultInputTargetsSelector
+) {
 
     /**
      * Targets that can just be deserialized and do not need to be commonized.
@@ -39,16 +42,29 @@ internal class CommonizerQueue(private val parameters: CommonizerParameters) {
      */
     private val targetDependencies: MutableMap<OutputCommonizerTarget, Set<InputCommonizerTarget>> = mutableMapOf()
 
+    /**
+     * Runs all tasks/targets in this queue
+     */
+    fun invokeAll() {
+        parameters.outputTargets.forEach { outputTarget -> invokeTarget(outputTarget) }
+        assert(providedTargets.isEmpty()) { "Expected 'providedTargets' to be empty. Found ${providedTargets.keys}" }
+        assert(commonizedTargets.isEmpty()) { "Expected 'commonizedTargets' to be empty. Found ${commonizedTargets.keys}" }
+        assert(targetDependencies.isEmpty()) { "Expected 'targetDependencies' to be empty. Found $targetDependencies" }
+    }
+
+    fun invokeTarget(outputTarget: OutputCommonizerTarget) {
+        commonizedTargets[outputTarget]?.invoke()
+    }
 
     private fun enqueue(outputTarget: OutputCommonizerTarget) {
         registerTargetDependencies(outputTarget)
 
         commonizedTargets[outputTarget] = parameters.storageManager.createNullableLazyValue {
-            execute(outputTarget)
+            commonize(outputTarget)
         }
     }
 
-    private fun execute(target: SharedCommonizerTarget): CirTreeRoot? {
+    private fun commonize(target: SharedCommonizerTarget): CirTreeRoot? {
         val inputTargets = targetDependencies.getValue(target)
 
         val inputDeclarations = EagerTargetDependent(inputTargets) { inputTarget ->
@@ -56,7 +72,7 @@ internal class CommonizerQueue(private val parameters: CommonizerParameters) {
             ?: throw IllegalStateException("Missing inputTarget $inputTarget")).invoke()
         }
 
-        return commonizeTarget(parameters, target, inputDeclarations)
+        return commonizeTarget(parameters, inputDeclarations, target)
             .also { removeTargetDependencies(target) }
             ?.also { commonizedDeclarations -> serializeTarget(parameters, commonizedDeclarations, target) }
             ?.assembleCirTree()
@@ -64,7 +80,7 @@ internal class CommonizerQueue(private val parameters: CommonizerParameters) {
     }
 
     private fun registerTargetDependencies(outputTarget: OutputCommonizerTarget) {
-        targetDependencies[outputTarget] = selectInputTargets(parameters, outputTarget)
+        targetDependencies[outputTarget] = inputTargetsSelector(parameters, outputTarget)
     }
 
     private fun removeTargetDependencies(target: OutputCommonizerTarget) {
@@ -81,6 +97,7 @@ internal class CommonizerQueue(private val parameters: CommonizerParameters) {
     }
 
     init {
-        parameters.outputTargets.forEach(::enqueue)
+        parameters.outputTargets.forEach(this::enqueue)
     }
+
 }
