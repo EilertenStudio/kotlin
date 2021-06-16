@@ -9,6 +9,7 @@ import kotlinx.metadata.klib.ChunkedKlibModuleFragmentWriteStrategy
 import org.jetbrains.kotlin.commonizer.mergedtree.CirNode.Companion.indexOfCommon
 import org.jetbrains.kotlin.commonizer.mergedtree.CirRootNode
 import org.jetbrains.kotlin.commonizer.metadata.CirTreeSerializer
+import org.jetbrains.kotlin.commonizer.utils.progress
 import org.jetbrains.kotlin.library.SerializedMetadata
 
 private val KLIB_FRAGMENT_WRITE_STRATEGY = ChunkedKlibModuleFragmentWriteStrategy()
@@ -17,7 +18,7 @@ internal fun serializeTarget(
     parameters: CommonizerParameters,
     mergedTree: CirRootNode,
     target: SharedCommonizerTarget
-) {
+): Unit = parameters.logger.progress(target, "Serialized target") {
     CirTreeSerializer.serializeSingleTarget(mergedTree, mergedTree.indexOfCommon, parameters.statsCollector) { metadataModule ->
         val libraryName = metadataModule.name
         val serializedMetadata = with(metadataModule.write(KLIB_FRAGMENT_WRITE_STRATEGY)) {

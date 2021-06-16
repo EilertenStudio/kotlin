@@ -24,7 +24,7 @@ internal class PendingCommonizerTarget(
 internal fun PendingCommonizerTarget(parameters: CommonizerParameters, target: SharedCommonizerTarget): PendingCommonizerTarget =
     PendingCommonizerTarget(inputTargets = selectInputTargets(parameters, target), outputTarget = target) Producer@{
         val mergedTree = parameters.logger.progress(target, "Commonized declarations from ${inputDeclarations.targets}") {
-            commonize(parameters, target, inputDeclarations.mapValue { it.invoke() }) ?: return@Producer null
+            commonizeTarget(parameters, target, inputDeclarations.mapValue { it.invoke() }) ?: return@Producer null
         }
 
         parameters.logger.progress(target, "Serialized target") {
@@ -35,14 +35,14 @@ internal fun PendingCommonizerTarget(parameters: CommonizerParameters, target: S
     }
 
 
-private fun selectInputTargets(parameters: CommonizerParameters, outputTarget: SharedCommonizerTarget): Set<CommonizerTarget> {
+internal fun selectInputTargets(parameters: CommonizerParameters, outputTarget: SharedCommonizerTarget): Set<CommonizerTarget> {
     return selectInputTargets(parameters.outputTargets + parameters.targetProviders.targets, outputTarget)
 }
 
 // Worst prototype implementation I have ever produced.
 //  literally does not do the "job" at all.
 //   still produces some output that "can be used"
-private fun selectInputTargets(targets: Set<CommonizerTarget>, outputTarget: SharedCommonizerTarget): Set<CommonizerTarget> {
+internal fun selectInputTargets(targets: Set<CommonizerTarget>, outputTarget: SharedCommonizerTarget): Set<CommonizerTarget> {
     if (false) return outputTarget.allLeaves()
 
     val allTargetLeaves = outputTarget.allLeaves()

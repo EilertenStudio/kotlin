@@ -7,7 +7,7 @@ package org.jetbrains.kotlin.commonizer
 
 import org.jetbrains.kotlin.commonizer.ResultsConsumer.Status
 import org.jetbrains.kotlin.commonizer.tree.CirTreeRoot
-import org.jetbrains.kotlin.commonizer.tree.deserializeCirTree
+import org.jetbrains.kotlin.commonizer.tree.deserializeTarget
 import org.jetbrains.kotlin.commonizer.utils.progress
 import org.jetbrains.kotlin.storage.NullableLazyValue
 import java.util.Comparator.comparing
@@ -32,7 +32,7 @@ internal fun buildCommonizerJobQueue(
         EagerTargetDependent(parameters.targetProviders.targets) { target ->
             parameters.storageManager.createNullableLazyValue {
                 parameters.logger.progress(target, "Deserialized declarations") {
-                    deserializeCirTree(parameters, target)
+                    deserializeTarget(parameters, target)
                 }
             }
         }
