@@ -9,7 +9,6 @@ package org.jetbrains.kotlin.commonizer.cli
 
 import org.jetbrains.kotlin.commonizer.*
 import org.jetbrains.kotlin.commonizer.konan.LibraryCommonizer
-import org.jetbrains.kotlin.commonizer.konan.LoggingResultsConsumer
 import org.jetbrains.kotlin.commonizer.konan.ModuleSerializer
 import org.jetbrains.kotlin.commonizer.repository.*
 import org.jetbrains.kotlin.commonizer.stats.FileStatsOutput
@@ -65,7 +64,6 @@ internal class NativeKlibCommonize(options: Collection<Option<*>>) : Task(option
 
         val resultsConsumer = buildResultsConsumer {
             this add ModuleSerializer(destination)
-            this add LoggingResultsConsumer
         }
 
         LibraryCommonizer(
@@ -101,7 +99,6 @@ internal class NativeDistributionCommonize(options: Collection<Option<*>>) : Tas
 
         val resultsConsumer = buildResultsConsumer {
             this add ModuleSerializer(destination)
-            this add LoggingResultsConsumer
         }
 
         val descriptionSuffix = estimateLibrariesCount(repository, outputTargets.allLeaves()).let { " ($it items)" }

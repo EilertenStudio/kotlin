@@ -9,8 +9,8 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskProvider
-import org.jetbrains.kotlin.commonizer.CommonizerOutputLayout
-import org.jetbrains.kotlin.commonizer.CommonizerOutputLayout.fileName
+import org.jetbrains.kotlin.commonizer.CommonizerOutputFileLayout
+import org.jetbrains.kotlin.commonizer.CommonizerOutputFileLayout.fileName
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinSharedNativeCompilation
 import org.jetbrains.kotlin.gradle.utils.filesProvider
 import java.io.File
@@ -31,8 +31,8 @@ internal abstract class AbstractCInteropCommonizerTask : DefaultTask() {
         val compilationCommonizerTarget = project.getCommonizerTarget(compilation) ?: return project.files()
         val fileProvider = project.filesProvider {
             val parameters = getCommonizationParameters(compilation) ?: return@filesProvider emptySet<File>()
-            CommonizerOutputLayout
-                .getTargetDirectory(outputDirectory(parameters), compilationCommonizerTarget)
+            CommonizerOutputFileLayout
+                .getCommonizedDirectory(outputDirectory(parameters), compilationCommonizerTarget)
                 .listFiles().orEmpty().toSet()
         }
 

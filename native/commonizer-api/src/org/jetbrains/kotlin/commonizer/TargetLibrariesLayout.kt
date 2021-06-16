@@ -9,10 +9,10 @@ import java.io.File
 import java.security.MessageDigest
 import java.util.*
 
-public object CommonizerOutputLayout {
+public object CommonizerOutputFileLayout {
     internal const val maxFileNameLength = 150
 
-    public fun getTargetDirectory(root: File, target: CommonizerTarget): File {
+    public fun getCommonizedDirectory(root: File, target: CommonizerTarget): File {
         return root.resolve(target.fileName)
     }
 
