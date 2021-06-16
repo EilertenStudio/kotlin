@@ -157,6 +157,9 @@ class K2JSCompilerArguments : CommonCompilerArguments() {
     @Argument(value = "-Xir-base-class-in-metadata", description = "Write base class into metadata")
     var irBaseClassInMetadata: Boolean by FreezableVar(false)
 
+    @Argument(value = "-Xir-safe-external-boolean", description = "Safe access via Boolean() to Boolean properties in externals to safely cast falsy values.")
+    var irSafeExternalBoolean: Boolean by FreezableVar(false)
+
     @Argument(value = "-Xir-per-module", description = "Splits generated .js per-module")
     var irPerModule: Boolean by FreezableVar(false)
 

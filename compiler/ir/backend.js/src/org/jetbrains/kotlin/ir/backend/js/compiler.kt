@@ -54,6 +54,7 @@ fun compile(
     propertyLazyInitialization: Boolean,
     legacyPropertyAccess: Boolean = false,
     baseClassIntoMetadata: Boolean = false,
+    safeExternalBoolean: Boolean = false,
 ): CompilerResult {
     val (moduleFragment: IrModuleFragment, dependencyModules, irBuiltIns, symbolTable, deserializer, moduleToName) =
         loadIr(project, mainModule, analyzer, configuration, allDependencies, friendDependencies, irFactory)
@@ -76,7 +77,8 @@ fun compile(
         dceRuntimeDiagnostic = dceRuntimeDiagnostic,
         propertyLazyInitialization = propertyLazyInitialization,
         legacyPropertyAccess = legacyPropertyAccess,
-        baseClassIntoMetadata = baseClassIntoMetadata
+        baseClassIntoMetadata = baseClassIntoMetadata,
+        safeExternalBoolean = safeExternalBoolean,
     )
 
     // Load declarations referenced during `context` initialization

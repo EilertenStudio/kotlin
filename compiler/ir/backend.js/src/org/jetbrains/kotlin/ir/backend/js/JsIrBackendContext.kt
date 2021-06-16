@@ -49,6 +49,7 @@ class JsIrBackendContext(
     val propertyLazyInitialization: Boolean = false,
     val legacyPropertyAccess: Boolean = false,
     val baseClassIntoMetadata: Boolean = false,
+    val safeExternalBoolean: Boolean = false,
 ) : JsCommonBackendContext {
     val fileToInitializationFuns: MutableMap<IrFile, IrSimpleFunction?> = mutableMapOf()
     val fileToInitializerPureness: MutableMap<IrFile, Boolean> = mutableMapOf()
